@@ -191,7 +191,19 @@ __codex_apply_provider() {
     # Ensure model metadata exists in catalog
     __codex_ensure_model_catalog "$model" "$model"
 
+    # Start provider's chat-proxy if available
+    __codex_start_proxy_if_needed "$provider"
+
     export CODEX_PROVIDER="$provider"
+}
+
+__codex_start_proxy_if_needed() {
+    local provider="$1"
+    local proxy_script="${BASH_SOURCE[0]%/codex-use.sh}/proxy/start-proxy.sh"
+
+    if [ -x "$proxy_script" ]; then
+        bash "$proxy_script" "$provider" 2>/dev/null || true
+    fi
 }
 
 # ── Public commands ─────────────────────────────────────────

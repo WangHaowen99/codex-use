@@ -59,6 +59,11 @@ codex-which
 `codex-use` modifies Codex's configuration files:
 - `~/.codex/config.toml` — updates `model_provider`, `model`, and provider sections
 - `~/.codex/auth.json` — updates the API key
+- `~/.codex/model_catalog.json` — auto-populates model metadata
+
+Codex uses OpenAI Responses API, but DeepSeek/Zhipu only support Chat Completions.
+A local Node.js proxy (`proxy/chat-proxy.mjs`) auto-starts on first use to translate
+between the two protocols (ports 8788 for DeepSeek, 8789 for Zhipu).
 
 ## Troubleshooting
 
