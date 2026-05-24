@@ -71,6 +71,76 @@ __codex_write_auth() {
     mv "$tmp" "$__codex_auth"
 }
 
+__codex_ensure_model_catalog() {
+    local model="$1" display="${2:-$1}" ctx_window="${3:-128000}"
+    local catalog_file="${__codex_home}/model_catalog.json"
+
+    if [ ! -f "$catalog_file" ]; then
+        return 0
+    fi
+
+    python3 - "$catalog_file" "$model" "$display" "$ctx_window" << 'PYEOF' > /dev/null 2>&1
+import sys, json
+
+catalog_file = sys.argv[1]
+model_slug = sys.argv[2]
+display_name = sys.argv[3]
+ctx_window = int(sys.argv[4])
+
+with open(catalog_file, 'r') as f:
+    catalog = json.load(f)
+
+# Skip if model already exists
+if any(m['slug'] == model_slug for m in catalog.get('models', [])):
+    sys.exit(0)
+
+entry = {
+    "slug": model_slug,
+    "display_name": display_name,
+    "description": f"Auto-generated catalog entry for {display_name}.",
+    "default_reasoning_level": "xhigh",
+    "supported_reasoning_levels": [
+        {"effort": "low", "description": "Fast responses with lighter reasoning"},
+        {"effort": "medium", "description": "Balances speed and reasoning depth for everyday tasks"},
+        {"effort": "high", "description": "Greater reasoning depth for complex problems"},
+        {"effort": "xhigh", "description": "Extra high reasoning depth for complex problems"}
+    ],
+    "shell_type": "shell_command",
+    "visibility": "list",
+    "supported_in_api": True,
+    "priority": 10,
+    "additional_speed_tiers": ["fast"],
+    "availability_nux": None,
+    "upgrade": None,
+    "base_instructions": "",
+    "model_messages": {
+        "instructions_template": "",
+        "instructions_variables": {}
+    },
+    "supports_reasoning_summaries": True,
+    "default_reasoning_summary": "none",
+    "support_verbosity": True,
+    "default_verbosity": "low",
+    "apply_patch_tool_type": "freeform",
+    "web_search_tool_type": "text_and_image",
+    "truncation_policy": {"mode": "tokens", "limit": ctx_window},
+    "supports_parallel_tool_calls": True,
+    "supports_image_detail_original": True,
+    "context_window": ctx_window,
+    "max_context_window": ctx_window,
+    "effective_context_window_percent": 95,
+    "experimental_supported_tools": [],
+    "input_modalities": ["text", "image"],
+    "supports_search_tool": True
+}
+
+catalog['models'].append(entry)
+
+with open(catalog_file, 'w') as f:
+    json.dump(catalog, f, indent=2, ensure_ascii=False)
+PYEOF
+}
+
 # ── Provider registry ───────────────────────────────────────
 
 codex-providers() {
@@ -117,6 +187,9 @@ __codex_apply_provider() {
 
     # Write auth.json
     __codex_write_auth "$api_key"
+
+    # Ensure model metadata exists in catalog
+    __codex_ensure_model_catalog "$model" "$model"
 
     export CODEX_PROVIDER="$provider"
 }
