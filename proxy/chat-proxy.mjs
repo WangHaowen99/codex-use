@@ -237,11 +237,13 @@ function toResponsesResult(ccResp, model) {
   const output = [];
   const msg = choice.message;
 
-  if (msg.content) {
+  // DeepSeek v4 may put output in reasoning_content when content is empty
+  const text = msg.content || msg.reasoning_content || '';
+  if (text) {
     output.push({
       type: 'message',
       role: 'assistant',
-      content: [{ type: 'output_text', text: msg.content }],
+      content: [{ type: 'output_text', text }],
     });
   }
 
@@ -349,14 +351,16 @@ async function handleStream(upstream, res, model) {
         continue;
       }
 
-      // Handle text content
-      if (delta.content != null) {
-        totalText += delta.content;
+      // Handle text content — some models (e.g. DeepSeek v4 Pro) emit
+      // reasoning_content instead of content in streaming mode.
+      const textDelta = delta.content ?? delta.reasoning_content;
+      if (textDelta != null) {
+        totalText += textDelta;
         sendSSE(res, 'response.output_text.delta', {
           type: 'response.output_text.delta',
           output_index: 0,
           content_index: 0,
-          delta: delta.content,
+          delta: textDelta,
         });
       }
 
